@@ -1,7 +1,8 @@
 """
 Multi-layer memory system for LangGraph applications.
 
-This package provides a four-tier memory architecture:
+This package provides a five-tier memory architecture:
+0. Meta-Memory (System 3): Coherence validation and narrative identity
 1. Cached Memory: Redis with distributed locking
 2. Short-term Memory: Active conversation context
 3. Long-term Memory: PostgreSQL with semantic search

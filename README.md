@@ -6,11 +6,12 @@
 
 ## Features
 
-- **Four-Tier Architecture**:
+- **Five-Tier Architecture**:
   - **Layer 0**: Meta-Memory (System 3) - Coherence validation and narrative identity
   - **Layer 1**: Redis cache for instant responses (< 1ms)
   - **Layer 2**: Short-term memory with importance-based consolidation
   - **Layer 3**: PostgreSQL with pgvector for semantic search
+  - **Layer 4**: RLM reasoning - DSPy-powered recursive exploration and synthesis
 
 - **Meta-Cognitive Capabilities**:
   - **Coherence Validation**: Pre-action consistency checking with narrative state
@@ -18,6 +19,8 @@
   - **Semantic Conflict Detection**: Automatic identification of contradictory information
   - **Narrative Identity Persistence**: Maintains consistent agent personality across sessions
   - **Memory Attribution**: Understands WHY information is remembered and HOW it relates
+  - **RLM Multi-Hop Reasoning**: Chain-of-thought reasoning across disparate memories using recursive language models
+  - **Memory Synthesis**: Temporal aggregation and insight generation from large memory stores with safe fallbacks
 
 - **Advanced Memory Management**:
   - Distributed locking for concurrent access
@@ -139,14 +142,20 @@ Query arrives
        - PostgreSQL: permanent record + embeddings
 ```
 
+Layer 4 (RLM) can optionally run after retrieval to recursively explore related memories, perform multi-hop reasoning, and synthesize an answer. Falls back to standard retrieval when unavailable.
+
 ### Key Components
 
 - **`MetaMemory`**: System 3 meta-cognitive layer with coherence validation
-- **`MemoryManager`**: Coordinates all four memory layers
+- **`MemoryManager`**: Coordinates all five memory layers (including optional RLM)
 - **`CachedMemory`**: Redis-based fast caching with distributed locks
 - **`ShortTermMemory`**: Importance-scored conversation context
 - **`LongTermMemory`**: PostgreSQL with vector search capabilities
 - **`EmbeddingService`**: Text embeddings for semantic search
+- **`RLMMemoryExplorer`**: Recursive exploration of memory context via DSPy RLM
+- **`RLMMemoryReasoner`**: Multi-hop chain reasoning with fallback to ChainOfThought
+- **`RLMMemorySynthesizer`**: Temporal synthesis across memory stores
+- **`ProductionRLMMemory`**: Production-ready module combining explorer, reasoner, and synthesizer
 - **`types.py`**: Shared type definitions eliminating circular dependencies
 
 ## Development
