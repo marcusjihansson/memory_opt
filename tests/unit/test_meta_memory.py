@@ -2,16 +2,11 @@
 Unit tests for MetaMemory - tests in isolation without DB
 """
 
-import pytest
-import numpy as np
-from unittest.mock import Mock
 
-from memory import EmbeddingService, MetaMemory
+from memory import MetaMemory
 from memory.types import (
-    MemoryType,
     MemoryStability,
-    GoalLevel,
-    create_default_narrative_state,
+    MemoryType,
 )
 
 
@@ -99,8 +94,8 @@ class TestCoherenceChecking:
 
         result = meta.check_coherence("Help user with their goal", narrative_state)
 
-        assert result["coherent"] == True
-        assert result["should_proceed"] == True
+        assert result["coherent"]
+        assert result["should_proceed"]
         assert result["coherence_score"] >= 0.7
 
     def test_check_coherence_with_violating_action(
@@ -135,7 +130,7 @@ class TestConflictDetection:
         result = meta.detect_memory_conflicts(memory2, [memory1])
 
         # With mock embeddings, might detect similarity but low confidence diff
-        assert result is None or result["has_conflict"] == False
+        assert result is None or not result["has_conflict"]
 
     def test_detect_memory_conflicts_with_conflict(self, embedding_service):
         """Test conflict detection for contradictory memories"""

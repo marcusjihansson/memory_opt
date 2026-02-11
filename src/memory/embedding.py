@@ -4,9 +4,10 @@ Embedding service for semantic search capabilities.
 
 import hashlib
 import os
-import requests
+from typing import Any, cast
+
 import numpy as np
-from typing import List
+import requests
 
 
 class EmbeddingService:
@@ -21,7 +22,7 @@ class EmbeddingService:
         self.base_url = "https://openrouter.ai/api/v1"
         self.dimension = 1536  # text-embedding-3-small dimension
 
-    def embed_text(self, text: str) -> List[float]:
+    def embed_text(self, text: str) -> list[float]:
         """
         Generate embedding for text using OpenRouter.
         Falls back to mock if no API key.
@@ -40,8 +41,9 @@ class EmbeddingService:
                     },
                 )
                 response.raise_for_status()
-                data = response.json()
-                return data["data"][0]["embedding"]
+                data = cast(dict[str, Any], response.json())
+                embedding = cast(list[float], data["data"][0]["embedding"])
+                return embedding
             except Exception as e:
                 print(f"OpenRouter embedding failed: {e}, falling back to mock")
 
@@ -49,13 +51,13 @@ class EmbeddingService:
         hash_obj = hashlib.sha256(text.encode())
         seed = int(hash_obj.hexdigest(), 16) % (2**32)
         np.random.seed(seed)
-        embedding = np.random.randn(self.dimension).tolist()
+        embedding = cast(list[float], np.random.randn(self.dimension).tolist())
 
         # Normalize
         norm = np.linalg.norm(embedding)
-        return (np.array(embedding) / norm).tolist()
+        return cast(list[float], (np.array(embedding) / norm).tolist())
 
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Batch embed multiple texts for efficiency"""
         if self.api_key and len(texts) > 1:
             try:
@@ -71,8 +73,9 @@ class EmbeddingService:
                     },
                 )
                 response.raise_for_status()
-                data = response.json()
-                return [item["embedding"] for item in data["data"]]
+                data = cast(dict[str, Any], response.json())
+                items = cast(list[dict[str, Any]], data["data"])
+                return [cast(list[float], item["embedding"]) for item in items]
             except Exception as e:
                 print(
                     f"OpenRouter batch embedding failed: {e}, falling back to individual"
@@ -80,6 +83,6 @@ class EmbeddingService:
 
         return [self.embed_text(text) for text in texts]
 
-    def cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
+    def cosine_similarity(self, vec1: list[float], vec2: list[float]) -> float:
         """Calculate cosine similarity between two vectors"""
         return float(np.dot(vec1, vec2))

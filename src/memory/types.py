@@ -7,7 +7,8 @@ that can be imported by all memory components without coupling.
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, TypedDict
+
 import numpy as np
 
 # ============================================================================
@@ -59,11 +60,11 @@ class Memory:
     created_at: str
     last_verified: str
     session_id: str
-    tags: List[str]
+    tags: list[str]
     reasoning: str
-    embedding: Optional[np.ndarray] = None
-    related_memory_ids: List[str] = field(default_factory=list)
-    contradicts_memory_ids: List[str] = field(default_factory=list)
+    embedding: np.ndarray | None = None
+    related_memory_ids: list[str] = field(default_factory=list)
+    contradicts_memory_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -76,15 +77,15 @@ class HierarchicalGoal:
     id: str
     content: str
     level: GoalLevel
-    parent_id: Optional[str] = None
-    children_ids: List[str] = field(default_factory=list)
+    parent_id: str | None = None
+    children_ids: list[str] = field(default_factory=list)
     progress: float = 0.0
     completed: bool = False
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     importance: float = 0.5
-    embedding: Optional[np.ndarray] = None
-    supports_goals: List[str] = field(default_factory=list)
-    blocks_goals: List[str] = field(default_factory=list)
+    embedding: np.ndarray | None = None
+    supports_goals: list[str] = field(default_factory=list)
+    blocks_goals: list[str] = field(default_factory=list)
 
 
 # ============================================================================
@@ -95,9 +96,9 @@ class HierarchicalGoal:
 class NarrativeState(TypedDict):
     """The persistent narrative identity - meta-memory's core"""
 
-    identity: Dict[str, Any]
-    goal_hierarchy: Dict[str, HierarchicalGoal]
-    constraints: List[str]
-    commitments: List[str]
-    session_arc: Dict[str, Any]
+    identity: dict[str, Any]
+    goal_hierarchy: dict[str, HierarchicalGoal]
+    constraints: list[str]
+    commitments: list[str]
+    session_arc: dict[str, Any]
     coherence_score: float

@@ -3,10 +3,12 @@ Long-term memory with semantic search using PostgreSQL and pgvector.
 """
 
 import json
-from typing import Dict, Any, List, Optional
+from typing import Any, cast
+
 import psycopg
-from pgvector.psycopg import register_vector
 from pgvector import Vector
+from pgvector.psycopg import register_vector
+
 from .embedding import EmbeddingService
 
 
@@ -20,7 +22,7 @@ class LongTermMemory:
         self.embedding_service = embedding_service
         self._init_database()
 
-    def _init_database(self):
+    def _init_database(self) -> None:
         """Initialize database schema with pgvector"""
         with psycopg.connect(self.conn_string) as conn:
             # Enable pgvector
@@ -105,9 +107,9 @@ class LongTermMemory:
         role: str,
         content: str,
         importance_score: float = 0.5,
-        metadata: Optional[Dict] = None,
+        metadata: dict[str, Any] | None = None,
         generate_embedding: bool = True,
-    ):
+    ) -> None:
         """Store a message with optional embedding generation"""
         embedding = None
         if generate_embedding:
@@ -135,8 +137,8 @@ class LongTermMemory:
             conn.commit()
 
     def get_session_history(
-        self, session_id: str, limit: Optional[int] = None, min_importance: float = 0.0
-    ) -> List[Dict[str, Any]]:
+        self, session_id: str, limit: int | None = None, min_importance: float = 0.0
+    ) -> list[dict[str, Any]]:
         """Retrieve session history, optionally filtered by importance"""
         with psycopg.connect(self.conn_string) as conn:
             query = """
@@ -170,8 +172,8 @@ class LongTermMemory:
         user_id: str,
         limit: int = 5,
         min_similarity: float = 0.7,
-        time_window_days: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        time_window_days: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Search past conversations semantically using vector similarity.
 
@@ -234,9 +236,9 @@ class LongTermMemory:
         self,
         session_id: str,
         user_id: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         summary: str,
-    ):
+    ) -> None:
         """
         Consolidate short-term memories into long-term storage.
 
@@ -297,9 +299,9 @@ class LongTermMemory:
     def update_user_profile(
         self,
         user_id: str,
-        preferences: Optional[Dict] = None,
-        learned_facts: Optional[Dict] = None,
-    ):
+        preferences: dict[str, Any] | None = None,
+        learned_facts: dict[str, Any] | None = None,
+    ) -> None:
         """Update user profile with learned information"""
         with psycopg.connect(self.conn_string) as conn:
             conn.execute(
@@ -323,7 +325,7 @@ class LongTermMemory:
             )
             conn.commit()
 
-    def get_user_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
+    def get_user_profile(self, user_id: str) -> dict[str, Any] | None:
         """Retrieve user profile"""
         with psycopg.connect(self.conn_string) as conn:
             result = conn.execute(
@@ -344,7 +346,7 @@ class LongTermMemory:
                 }
         return None
 
-    def prune_old_memories(self, days_to_keep: int = 90):
+    def prune_old_memories(self, days_to_keep: int = 90) -> None:
         """
         Remove old, low-importance memories to manage storage.
         Keeps important memories longer.
@@ -370,4 +372,53 @@ class LongTermMemory:
                 (days_to_keep * 2,),
             )
 
+            conn.commit()
+
+    def load_narrative_state(self, session_id: str, user_id: str) -> dict[str, Any] | None:
+        """
+        Load narrative state from database.
+        Returns None if no state exists (caller should create default).
+        """
+        with psycopg.connect(self.conn_string) as conn:
+            # Ensure narrative_states table exists
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS narrative_states (
+                    id SERIAL PRIMARY KEY,
+                    session_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    state_data JSONB NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(session_id, user_id)
+                )
+            """)
+            conn.commit()
+
+            result = conn.execute(
+                """
+                SELECT state_data FROM narrative_states
+                WHERE session_id = %s AND user_id = %s
+                """,
+                (session_id, user_id),
+            )
+            row = result.fetchone()
+            if row:
+                return cast(dict[str, Any], row[0])
+        return None
+
+    def store_narrative_state(
+        self, session_id: str, user_id: str, state_data: dict[str, Any]
+    ) -> None:
+        """Store or update narrative state in database."""
+        with psycopg.connect(self.conn_string) as conn:
+            conn.execute(
+                """
+                INSERT INTO narrative_states (session_id, user_id, state_data)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (session_id, user_id) DO UPDATE SET
+                    state_data = EXCLUDED.state_data,
+                    updated_at = NOW()
+                """,
+                (session_id, user_id, json.dumps(state_data)),
+            )
             conn.commit()

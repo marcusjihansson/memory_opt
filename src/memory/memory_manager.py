@@ -1,13 +1,14 @@
 """
-Integrated memory manager coordinating all three memory layers.
+Integrated memory manager coordinating all memory layers including RLM.
 """
 
 import hashlib
-from typing import Any, Dict, Optional
+from typing import Any
+
 from .cached_memory import CachedMemory
-from .short_term_memory import ShortTermMemory
-from .long_term_memory import LongTermMemory
 from .embedding import EmbeddingService
+from .long_term_memory import LongTermMemory
+from .short_term_memory import ShortTermMemory
 from .state import AgentState
 
 
@@ -16,7 +17,7 @@ class MemoryManager:
     Coordinates all three memory layers with intelligent consolidation.
     """
 
-    def __init__(self, redis_url: str, postgres_url: str):
+    def __init__(self, redis_url: str, postgres_url: str, rlm_enabled: bool = False):
         self.cached = CachedMemory(redis_url)
         self.short_term = ShortTermMemory()
         self.embedding_service = EmbeddingService()
@@ -26,7 +27,30 @@ class MemoryManager:
 
         self.meta_memory = MetaMemory(self.embedding_service, self.long_term)
 
-    def load_narrative_state(self, state: AgentState) -> Dict[str, Any]:
+        # RLM support (lazy-loaded)
+        self.rlm_enabled = rlm_enabled
+        self._rlm_explorer: Any | None = None
+        self._rlm_production: Any | None = None
+
+    @property
+    def rlm_explorer(self) -> Any:
+        """Lazy-load RLM explorer."""
+        if self._rlm_explorer is None:
+            from .rlm_memory import RLMMemoryExplorer
+
+            self._rlm_explorer = RLMMemoryExplorer()
+        return self._rlm_explorer
+
+    @property
+    def rlm_production(self) -> Any:
+        """Lazy-load production RLM module."""
+        if self._rlm_production is None:
+            from .rlm_memory import ProductionRLMMemory
+
+            self._rlm_production = ProductionRLMMemory()
+        return self._rlm_production
+
+    def load_narrative_state(self, state: AgentState) -> dict[str, Any]:
         """Load or initialize narrative state for the session"""
         narrative_state = self.long_term.load_narrative_state(
             state["session_id"], state["user_id"]
@@ -93,12 +117,94 @@ class MemoryManager:
 
         return "\n".join(context_parts)
 
+    def get_context_with_rlm(
+        self,
+        state: AgentState,
+        query: str,
+        max_iterations: int = 10,
+        include_historical: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Build comprehensive context using RLM for intelligent exploration.
+
+        This method uses RLM to recursively explore all memory layers
+        and find the most relevant information for the given query.
+
+        Args:
+            state: Current agent state
+            query: Query to explore memories with
+            max_iterations: Maximum RLM iterations
+            include_historical: Whether to include historical context
+
+        Returns:
+            Dictionary with base context and RLM exploration results
+        """
+        # Get standard context first
+        base_context = self.get_context_for_agent(
+            state, include_historical=include_historical
+        )
+
+        # Use RLM to explore and find relevant memories
+        exploration_result = self.rlm_explorer(
+            memory_context=base_context,
+            query=query,
+            search_depth=3,
+        )
+
+        return {
+            "base_context": base_context,
+            "rlm_exploration": {
+                "relevant_memories": exploration_result.relevant_memories,
+                "confidence": exploration_result.confidence,
+            },
+            "query": query,
+            "method": "rlm",
+        }
+
+    def answer_with_rlm(
+        self,
+        state: AgentState,
+        question: str,
+        include_historical: bool = True,
+        use_fallback: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Answer a question using RLM-powered memory exploration.
+
+        Args:
+            state: Current agent state
+            question: Question to answer
+            include_historical: Whether to include historical context
+            use_fallback: Whether to use fallback on RLM failure
+
+        Returns:
+            Dictionary with answer, reasoning, and method used
+        """
+        # Get full context
+        context = self.get_context_for_agent(
+            state, include_historical=include_historical
+        )
+
+        # Use production RLM for Q&A
+        result = self.rlm_production(
+            context=context,
+            question=question,
+            use_fallback=use_fallback,
+        )
+
+        return {
+            "answer": result.answer,
+            "reasoning": getattr(result, "reasoning", ""),
+            "method": result.method,
+            "success": result.success,
+        }
+
     def save_interaction(
         self,
         state: AgentState,
-        message: Dict[str, str],
-        agent_result: Optional[Dict] = None,
-    ):
+        message: dict[str, str],
+        agent_result: dict[str, Any] | None = None,
+    ) -> None:
         """Save interaction across all memory layers"""
         session_id = state["session_id"]
         user_id = state["user_id"]
@@ -141,7 +247,7 @@ class MemoryManager:
             hasattr(state, "long_term_memory")
             and state.get("long_term_memory") is not None
         ):
-            from .meta_memory import MemoryType
+            from .types import MemoryType
 
             meta_mem = self.meta_memory.add_memory(
                 content=message["content"],
@@ -153,7 +259,7 @@ class MemoryManager:
             )
             state["long_term_memory"].append(meta_mem)
 
-    def consolidate_memories(self, state: AgentState):
+    def consolidate_memories(self, state: AgentState) -> None:
         """
         Consolidate short-term memories to long-term storage.
 
@@ -190,7 +296,7 @@ class MemoryManager:
             f"[CONSOLIDATION] Moved {len(important_messages)} messages to long-term storage"
         )
 
-    def end_session(self, state: AgentState):
+    def end_session(self, state: AgentState, *, clear_cache: bool = True) -> None:
         """End session and clean up"""
         # Final consolidation
         self.consolidate_memories(state)
@@ -204,7 +310,8 @@ class MemoryManager:
                 f"[META-MEMORY] Session arc updated: {state['narrative_state']['session_arc']}"
             )
 
-        # Clear cache
-        self.cached.invalidate_session(state["session_id"])
+        # Clear cache (optional, useful to keep for post-run verification)
+        if clear_cache:
+            self.cached.invalidate_session(state["session_id"])
 
         print(f"[SESSION END] Session {state['session_id']} finalized")

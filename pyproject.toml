@@ -20,15 +20,17 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "dspy-ai>=2.0.0",
+    "dspy @ git+https://github.com/stanfordnlp/dspy.git",
     "langgraph>=1.0.4",
     "langgraph-checkpoint-postgres>=3.0.0",
     "numpy>=2.3.5",
+    "pandas>=2.0.0",
     "pgvector>=0.4.2",
     "psycopg>=3.3.2",
     "python-dotenv>=1.0.0",
     "redis>=7.1.0",
     "requests>=2.31.0",
+    "sqlalchemy>=2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +46,9 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/memory"]
@@ -72,8 +77,24 @@ show_error_codes = true
 color_output = true
 
 [[tool.mypy.overrides]]
-module = ["redis.*", "requests.*"]
+module = ["redis.*", "requests.*", "dspy.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pgvector.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["transformers.*", "ray.*", "mlflow.*", "litellm.*", "langchain_community.*"]
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["google.cloud.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["memory.rlm_memory", "memory.graph.*"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

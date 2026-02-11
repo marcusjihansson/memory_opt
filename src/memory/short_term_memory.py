@@ -2,7 +2,8 @@
 Short-term memory management with importance scoring for intelligent consolidation.
 """
 
-from typing import Dict, Any, List
+from typing import Any
+
 from .state import AgentState
 
 
@@ -13,7 +14,7 @@ class ShortTermMemory:
     """
 
     @staticmethod
-    def calculate_importance(message: Dict[str, str], context: Dict[str, Any]) -> float:
+    def calculate_importance(message: dict[str, str], context: dict[str, Any]) -> float:
         """
         Calculate importance score for a message (0.0 to 1.0).
 
@@ -59,8 +60,8 @@ class ShortTermMemory:
 
     @staticmethod
     def update_conversation_history(
-        state: AgentState, new_message: Dict[str, str], max_history: int = 20
-    ) -> tuple[List[Dict[str, str]], Dict[str, float]]:
+        state: AgentState, new_message: dict[str, str], max_history: int = 20
+    ) -> tuple[list[dict[str, str]], dict[str, float]]:
         """
         Update conversation history with sliding window and importance tracking.
         """
@@ -124,7 +125,7 @@ class ShortTermMemory:
     @staticmethod
     def update_working_memory(
         state: AgentState, key: str, value: Any
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update working memory scratchpad"""
         working_mem = state.get("working_memory", {})
         working_mem[key] = value

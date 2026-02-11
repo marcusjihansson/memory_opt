@@ -2,15 +2,16 @@
 Graph construction and workflow setup for LangGraph integration.
 """
 
-from langgraph.graph import StateGraph, END
-from ..state import AgentState
-from ..memory_manager import MemoryManager
+from langgraph.graph import END, StateGraph
+
 from ..dspy_wrapper import MemoryDSPyWrapper
+from ..memory_manager import MemoryManager
+from ..state import AgentState
 from . import nodes
 from .nodes import (
-    orchestrator_node,
     agent_executor_node,
     memory_update_node,
+    orchestrator_node,
     synthesizer_node,
 )
 

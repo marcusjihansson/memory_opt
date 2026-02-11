@@ -4,9 +4,11 @@ Basic usage example of the three-tier memory system.
 
 import hashlib
 import os
+
 from dotenv import load_dotenv
-from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.graph import END, StateGraph
+
 from src.memory import MemoryManager
 from src.memory.state import AgentState
 

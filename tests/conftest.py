@@ -3,12 +3,13 @@ Pytest configuration and shared fixtures
 """
 
 import os
-import pytest
-import numpy as np
 from unittest.mock import Mock
 
-from memory import MemoryManager, EmbeddingService
-from memory.types import create_default_narrative_state
+import numpy as np
+import pytest
+
+from memory import EmbeddingService
+from memory.meta_memory import create_default_narrative_state
 
 
 @pytest.fixture

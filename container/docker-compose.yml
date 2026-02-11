@@ -1,0 +1,14 @@
+services:
+  rlm-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OLLAMA_API_KEY=${OLLAMA_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-https://ollama.com/}
+      - MODEL_NAME=${MODEL_NAME:-}
+    volumes:
+      - ${DOCS_PATH:-./docs}:/docs:ro

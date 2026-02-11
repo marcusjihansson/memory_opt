@@ -1,11 +1,15 @@
 """
 DSPy wrapper for integrating with the memory system.
 Provides memory-enabled execution of DSPy programs with configurable layers.
+Supports RLM (Recursive Language Model) for intelligent memory exploration.
 """
 
-from typing import Dict, Any, Type
+from typing import Any
+
 import dspy
+
 from .memory_manager import MemoryManager
+from .rlm_memory import ProductionRLMMemory, RLMMemoryExplorer
 from .state import AgentState
 
 
@@ -22,6 +26,8 @@ class MemoryDSPyWrapper:
         short_memory: bool = False,
         long_memory: bool = False,
         enable_consolidation: bool = False,
+        rlm_enabled: bool = False,
+        rlm_max_iterations: int = 10,
     ):
         """
         Initialize the wrapper.
@@ -32,12 +38,38 @@ class MemoryDSPyWrapper:
             short_memory: Enable short-term memory layer (default False)
             long_memory: Enable long-term memory layer (default False)
             enable_consolidation: Automatically consolidate memories after execution (default False)
+            rlm_enabled: Enable RLM for intelligent memory exploration (default False)
+            rlm_max_iterations: Maximum iterations for RLM exploration (default 10)
         """
         self.memory_manager = memory_manager
         self.cache = cache
         self.short_memory = short_memory
         self.long_memory = long_memory
         self.enable_consolidation = enable_consolidation
+        self.rlm_enabled = rlm_enabled
+        self.rlm_max_iterations = rlm_max_iterations
+
+        # Lazy-loaded RLM modules
+        self._rlm_explorer: RLMMemoryExplorer | None = None
+        self._rlm_production: ProductionRLMMemory | None = None
+
+    @property
+    def rlm_explorer(self) -> RLMMemoryExplorer:
+        """Lazy-load RLM explorer."""
+        if self._rlm_explorer is None:
+            self._rlm_explorer = RLMMemoryExplorer(
+                max_iterations=self.rlm_max_iterations
+            )
+        return self._rlm_explorer
+
+    @property
+    def rlm_production(self) -> ProductionRLMMemory:
+        """Lazy-load production RLM module."""
+        if self._rlm_production is None:
+            self._rlm_production = ProductionRLMMemory(
+                max_iterations=self.rlm_max_iterations
+            )
+        return self._rlm_production
 
     def get_memory_context(self, state: AgentState, format: str = "structured") -> Any:
         """
@@ -50,8 +82,8 @@ class MemoryDSPyWrapper:
         Returns:
             Memory context in requested format
         """
-        context_parts = []
-        structured_context = {}
+        context_parts: list[str] = []
+        structured_context: dict[str, Any] = {}
 
         # Cached memory
         if self.cache:
@@ -93,11 +125,78 @@ class MemoryDSPyWrapper:
         else:
             return structured_context
 
+    def get_memory_context_with_rlm(
+        self, state: AgentState, query: str, search_depth: int = 3
+    ) -> dict[str, Any]:
+        """
+        Retrieve memory context using RLM for intelligent exploration.
+
+        Args:
+            state: Current agent state
+            query: Query to explore memories with
+            search_depth: Depth of RLM exploration
+
+        Returns:
+            Dictionary with explored memories and RLM results
+        """
+        # First get standard memory context
+        base_context = self.get_memory_context(state, format="text")
+
+        # Use RLM to explore and find relevant memories
+        exploration_result = self.rlm_explorer(
+            memory_context=base_context,
+            query=query,
+            search_depth=search_depth,
+        )
+
+        return {
+            "base_context": base_context,
+            "rlm_exploration": {
+                "relevant_memories": exploration_result.relevant_memories,
+                "confidence": exploration_result.confidence,
+                "search_depth": exploration_result.search_depth,
+            },
+            "method": "rlm",
+        }
+
+    def execute_with_rlm(
+        self,
+        state: AgentState,
+        query: str,
+        use_fallback: bool = True,
+    ) -> Any:
+        """
+        Execute RLM-based memory exploration and reasoning.
+
+        Args:
+            state: Current agent state
+            query: Query/question to answer using memories
+            use_fallback: Whether to use fallback on RLM failure
+
+        Returns:
+            RLM execution result with answer and reasoning
+        """
+        # Get full memory context
+        memory_context = self.get_memory_context(state, format="text")
+
+        # Use production RLM for Q&A
+        result = self.rlm_production(
+            context=memory_context,
+            question=query,
+            use_fallback=use_fallback,
+        )
+
+        # Optional memory consolidation
+        if self.enable_consolidation:
+            self.memory_manager.consolidate_memories(state)
+
+        return result
+
     def execute_with_memory(
         self,
-        dspy_program_class: Type[dspy.Module],
+        dspy_program_class: type[dspy.Module],
         state: AgentState,
-        inputs: Dict[str, Any],
+        inputs: dict[str, Any],
         format: str = "structured",
     ) -> Any:
         """

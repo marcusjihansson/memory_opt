@@ -4,9 +4,10 @@ Graph nodes for LangGraph integration.
 
 import hashlib
 from datetime import datetime
-import dspy
-from ..state import AgentState
 
+import dspy
+
+from ..state import AgentState
 
 # Initialize memory manager (in production, inject via dependency injection)
 memory_manager = None  # Will be initialized in build_graph

@@ -3,7 +3,9 @@ Advanced usage example demonstrating the complete memory system with consolidati
 """
 
 import os
+
 from dotenv import load_dotenv
+
 from src.memory.graph.construction import build_graph
 
 

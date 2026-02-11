@@ -8,6 +8,7 @@ def test_imports():
     try:
         from src.memory.state import AgentState
 
+        assert AgentState is not None
         print("✓ AgentState imported successfully")
     except ImportError as e:
         print(f"✗ AgentState import failed: {e}")
@@ -16,6 +17,7 @@ def test_imports():
         # This will fail due to missing dependencies, but structure should be ok
         from src.memory import MemoryManager
 
+        assert MemoryManager is not None
         print("✓ MemoryManager imported successfully")
     except ImportError as e:
         if "psycopg" in str(e) or "redis" in str(e) or "numpy" in str(e):
